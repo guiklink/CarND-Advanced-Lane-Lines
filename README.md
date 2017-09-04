@@ -1,9 +1,4 @@
-## Writeup Template
-
-### You can use this file as a template for your writeup if you want to submit it as a markdown file, but feel free to use some other method and submit a pdf if you prefer.
-
----
-[Project Video](https://vimeo.com/232379970)
+[Project Video](https://vimeo.com/232379970) [Debug](https://vimeo.com/232392603)
 
 **Advanced Lane Finding Project**
 
@@ -31,17 +26,10 @@ The goals / steps of this project are the following:
 [image9]: ./output_images/marked_image.png "Road Detection"
 [video1]: ./Lane_Detection.mp4 "Video"
 
-## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 
-### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
+## Contents
+* [Line_Detection_Pipeline](Line_Detection_Pipeline): This notebook contains my step by step in achieving the project.
 
----
-
-### Writeup / README
-
-#### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  [Here](https://github.com/udacity/CarND-Advanced-Lane-Lines/blob/master/writeup_template.md) is a template writeup for this project you can use as a guide and a starting point.  
-
-You're reading it!
 
 ### 1. Camera Calibration
 The code for this step is contained in the first code cell of the IPython notebook located in "./examples/example.ipynb" (or in lines # through # of the file called `some_file.py`).  
@@ -228,30 +216,32 @@ The second concept is called "sliding windows". The idea is to slice the picture
 
 Now, with the line identified we just have to warp back to our original perspective to achieve a desireble output.
 
-![alt text][image8]
+![alt text][image9]
 
-#### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
+#### 5. Radius of Curvature and Position of the vehicle with Respect to Center.
+In order to be able to debug and know if good lane was detected it was necessary to calculate the curvature and the distance form the lane to the center of the car.
+This was achivable with the folloing functions:
+```python
+pixe2meters = {'y':30/720, 'x':3.7/700}
 
-I did this in lines # through # in my code in `my_other_file.py`
+def curvature(y_eval, fitx, ploty):
+    # Define conversions in x and y from pixels space to meters
+    ym_per_pix = pixe2meters['y'] # meters per pixel in y dimension
+    xm_per_pix = pixe2meters['x'] # meters per pixel in x dimension
 
-#### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
+    # Fit new polynomials to x,y in world space
+    fit_cr = np.polyfit(ploty*ym_per_pix, fitx*xm_per_pix, 2)
+    # Calculate the new radii of curvature
+    curve_meters = ((1 + (2*fit_cr[0]*y_eval*ym_per_pix + fit_cr[1])**2)**1.5) / np.absolute(2*fit_cr[0])
+    
+    # Now our radius of curvature is in meters
+    return curve_meters
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+''' Compute the distance from the lane to the center of the vehicle '''
 
-![alt text][image6]
+vehicle_center = (640, 719)
 
----
-
-### Pipeline (video)
-
-#### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
-
-Here's a [link to my video result](./project_video.mp4)
-
----
-
-### Discussion
-
-#### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
-
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+def distance_center(fitx):
+    return (fitx[vehicle_center[1]] - vehicle_center[0]) * pixe2meters['x']
+```
+A debug video can be seem [here](https://vimeo.com/232392603).
