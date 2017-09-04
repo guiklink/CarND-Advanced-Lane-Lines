@@ -1,19 +1,11 @@
-## Advanced Lane Finding
-[![Udacity - Self-Driving Car NanoDegree](https://s3.amazonaws.com/udacity-sdc/github/shield-carnd.svg)](http://www.udacity.com/drive)
+## Writeup Template
 
+### You can use this file as a template for your writeup if you want to submit it as a markdown file, but feel free to use some other method and submit a pdf if you prefer.
 
-In this project, your goal is to write a software pipeline to identify the lane boundaries in a video, but the main output or product we want you to create is a detailed writeup of the project.  Check out the [writeup template](https://github.com/udacity/CarND-Advanced-Lane-Lines/blob/master/writeup_template.md) for this project and use it as a starting point for creating your own writeup.  
-
-Creating a great writeup:
 ---
-A great writeup should include the rubric points as well as your description of how you addressed each point.  You should include a detailed description of the code used in each step (with line-number references and code snippets where necessary), and links to other supporting documents or external references.  You should include images in your writeup to demonstrate how your code works with examples.  
+[Project Video](https://vimeo.com/232379970)
 
-All that said, please be concise!  We're not looking for you to write a book here, just a brief description of how you passed each rubric point, and references to the relevant code :). 
-
-You're not required to use markdown for your writeup.  If you use another method please just submit a pdf of your writeup.
-
-The Project
----
+**Advanced Lane Finding Project**
 
 The goals / steps of this project are the following:
 
@@ -22,14 +14,244 @@ The goals / steps of this project are the following:
 * Use color transforms, gradients, etc., to create a thresholded binary image.
 * Apply a perspective transform to rectify binary image ("birds-eye view").
 * Detect lane pixels and fit to find the lane boundary.
-* Determine the curvature of the lane and vehicle position with respect to center.
+* Determine the curvature of the lane and vehicle position with re spect to center.
 * Warp the detected lane boundaries back onto the original image.
 * Output visual display of the lane boundaries and numerical estimation of lane curvature and vehicle position.
 
-The images for camera calibration are stored in the folder called `camera_cal`.  The images in `test_images` are for testing your pipeline on single frames.  If you want to extract more test images from the videos, you can simply use an image writing method like `cv2.imwrite()`, i.e., you can read the video in frame by frame as usual, and for frames you want to save for later you can write to an image file.  
+[//]: # (Image References)
 
-To help the reviewer examine your work, please save examples of the output from each stage of your pipeline in the folder called `ouput_images`, and include a description in your writeup for the project of what each image shows.    The video called `project_video.mp4` is the video your pipeline should work well on.  
+[image1]: ./output_images/undistort_output.png "Undistorted"
+[image2]: ./output_images/road_undistort.png "Road Transformed"
+[image3]: ./output_images/binary.png "Binary Example"
+[image4]: ./output_images/warp_template.png "Transformation Template"
+[image5]: ./output_images/warped.png "Warped"
+[image6]: ./output_images/warped_binary.png "Binary Warped"
+[image7]: ./output_images/histogram.png "Histogram"
+[image8]: ./output_images/sliding_window.png "Sliding Window"
+[image9]: ./output_images/marked_image.png "Road Detection"
+[video1]: ./Lane_Detection.mp4 "Video"
 
-The `challenge_video.mp4` video is an extra (and optional) challenge for you if you want to test your pipeline under somewhat trickier conditions.  The `harder_challenge.mp4` video is another optional challenge and is brutal!
+## [Rubric](https://review.udacity.com/#!/rubrics/571/view) Points
 
-If you're feeling ambitious (again, totally optional though), don't stop there!  We encourage you to go out and take video of your own, calibrate your camera and show us how you would implement this project from scratch!
+### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
+
+---
+
+### Writeup / README
+
+#### 1. Provide a Writeup / README that includes all the rubric points and how you addressed each one.  You can submit your writeup as markdown or pdf.  [Here](https://github.com/udacity/CarND-Advanced-Lane-Lines/blob/master/writeup_template.md) is a template writeup for this project you can use as a guide and a starting point.  
+
+You're reading it!
+
+### 1. Camera Calibration
+The code for this step is contained in the first code cell of the IPython notebook located in "./examples/example.ipynb" (or in lines # through # of the file called `some_file.py`).  
+
+I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  `imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
+
+I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I created the function `undistort(image)` to be used through the project, which applies the distortion correction to the image using the `cv2.undistort()`. See the example bellow: 
+
+![alt text][image1]
+
+
+### Pipeline (single images)
+
+#### 1. Road Image Undistorted
+
+To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
+![alt text][image2]
+
+#### 2. Creating a Binary Image
+
+I used a combination of color and gradient thresholds to generate a binary image (for details on my experimentation see [Pipeline](./Line_Detection_Pipeline.ipynb)).  The function bellow receives a RBG image and converts to the appropriate encoding (RGB, HLS, HSV) and filter the pixels of the chosen channel according to a threshold.
+
+```python
+def threshold_image(image, channel, thresh = (0, 255), ft='RGB'):
+    assert channel >=0 and channel <=2
+    
+    if ft == 'HLS':
+        img = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+    if ft == 'HSV':
+        img = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    if ft == 'RGB':
+        img = image
+        
+    s_channel = img[:,:,channel]
+    binary = np.zeros_like(s_channel)
+    binary[(s_channel > thresh[0]) & (s_channel <= thresh[1])] = 1
+    return binary
+```
+
+The three next functions apply the same idea on different ways to retrieve the image gradient (axis, magnitude, direction).
+
+```python
+''' Returns the directional gradient given an angle threshold '''
+
+def dir_threshold(img, sobel_kernel=3, thresh=(0, np.pi/2)):
+    # Grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    # Calculate the x and y gradients
+    sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
+    sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
+    # Take the absolute value of the gradient direction, 
+    # apply a threshold, and create a binary image result
+    absgraddir = np.arctan2(np.absolute(sobely), np.absolute(sobelx))
+    binary_output =  np.zeros_like(absgraddir)
+    binary_output[(absgraddir >= thresh[0]) & (absgraddir <= thresh[1])] = 1
+
+    # Return the binary image
+    return binary_output
+
+
+''' Returns an image with the combine magnitude of gradients X & Y bounded by a threshold '''
+
+def mag_threshold(img, sobel_kernel=3, thresh=(0, 255)):
+    # Convert to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    # Take both Sobel x and y gradients
+    sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel)
+    sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel)
+    # Calculate the gradient magnitude
+    gradmag = np.sqrt(sobelx**2 + sobely**2)
+    # Rescale to 8 bit
+    scale_factor = np.max(gradmag)/255 
+    gradmag = (gradmag/scale_factor).astype(np.uint8) 
+    # Create a binary image of ones where threshold is met, zeros otherwise
+    binary_output = np.zeros_like(gradmag)
+    binary_output[(gradmag >= thresh[0]) & (gradmag <= thresh[1])] = 1
+
+    # Return the binary image
+    return binary_output
+
+
+''' Returns an image with the gradient accordingly to one direction bounded by a threshold '''
+
+def single_axis_threshold(image, axis, sobel_kernel=3, thresh=(0,255)):
+    assert axis == 'x' or axis == 'y'
+    
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    if axis == 'x':
+        sobel = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=sobel_kernel) # Take the derivative in x
+    elif axis == 'y':
+        sobel = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=sobel_kernel) # Take the derivative in y
+        
+    abs_sobel = np.absolute(sobel)    
+    scaled_sobel = np.uint8(255*abs_sobel/np.max(abs_sobel)) 
+    
+    sbinary = np.zeros_like(scaled_sobel)
+    sbinary[(scaled_sobel >= thresh[0]) & (scaled_sobel <= thresh[1])] = 1
+    return sbinary
+```
+Finally, after combining all gradients and color schemes are combined:
+
+```python
+def binary_image(image):
+    # Apply color filters
+    image_HSV_V = threshold_image(image, channel=2, thresh=(220,255), ft='HSV')
+    image_HLS_S = threshold_image(image, channel=2, thresh=(90,255), ft='HLS')
+    # Combine color images
+    combined_color = np.zeros_like(image_HSV_V)
+    combined_color[((image_HSV_V == 1) & (image_HLS_S == 1))] = 1
+    
+    # Apply Gradient filters
+    image_axis_x = single_axis_threshold(image, axis='x', sobel_kernel=5,thresh=(20,100))
+    image_axis_y = single_axis_threshold(image, axis='y', sobel_kernel=3,thresh=(20,100))
+    image_mag = mag_threshold(image, sobel_kernel=3,thresh=(30,100))
+    image_dir = dir_threshold(image, sobel_kernel=3, thresh=(0.7, 1.3))
+    # Combine Gradient images
+    combined_grad = np.zeros_like(image_axis_x)
+    combined_grad[((image_axis_x == 1) & (image_axis_y == 1)) 
+              | ((image_mag == 1) & (image_dir == 1))] = 1
+
+    # Combine color and gradient
+    combined_all = np.zeros_like(combined_grad)
+    combined_all[((combined_color == 1) | (combined_grad == 1))] = 1
+    
+    return combined_all
+```
+Here's an example of my output for this step.
+
+![alt text][image3]
+
+#### 3. Perspective Warping (Bird-Eye)
+The code bellow performs a perspective transform including a function called `cv2.warpPerspective()`.  The function calculate the transformation matrix between 4 points in the original image as a trapezoid and how the will be if we were to see the picture from the sky in a straight line (hence bird-eye). The image transformation template helps to understand the idea.
+
+```python
+def bird_eye(image):
+    top_left = (580,460)
+    top_right = (707,460)
+    bottom_left = (210,720)
+    bottom_right = (1110,720)
+    src = np.float32([[bottom_left, top_left, top_right, bottom_right]])
+	
+    left_bound, right_bound = (360, 970)
+    top_left = (left_bound,0)
+    top_right = (right_bound,0)
+    bottom_left = (left_bound,720)
+    bottom_right = (right_bound,720)
+    dst = np.float32([[bottom_left, top_left, top_right, bottom_right]])
+
+    img_x, img_y, chn = image.shape
+
+    M = cv2.getPerspectiveTransform(src, dst)
+    warped = cv2.warpPerspective(image, M, (img_y, img_x))
+    return M,warped
+```
+
+This resulted in the following source and destination points:
+
+| Source        | Destination   | 
+|:-------------:|:-------------:| 
+| 580, 460      | 360, 0        | 
+| 707, 460      | 970, 0        |
+| 210, 720      | 360, 720      |
+| 1110, 720     | 970, 720      |
+
+![alt text][image4]
+
+I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+
+![alt text][image5]
+
+
+#### 4. Identifying Lines
+
+Let's apply the binary view on our warped image: 
+![alt text][image6]
+
+In order to find the lanes I applied two concepts. First I created a histogram where **x-axis** tells the column horizontally in my binary picture and the **y-axis** tells me how many white pixels are in that column.  Thus, for the binary picture above we obtain the histogram bellow.
+
+![alt text][image7]
+
+The second concept is called "sliding windows". The idea is to slice the picture in windows of the same size and mark the windows that achieve a certain number of  white pixels using the histogram. Then, the points of the windows selected can be used in order to fit a polynomial of the second degree that will be used to draw the lane.
+
+![alt text][image8]
+
+Now, with the line identified we just have to warp back to our original perspective to achieve a desireble output.
+
+![alt text][image8]
+
+#### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
+
+I did this in lines # through # in my code in `my_other_file.py`
+
+#### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
+
+I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+
+![alt text][image6]
+
+---
+
+### Pipeline (video)
+
+#### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+
+Here's a [link to my video result](./project_video.mp4)
+
+---
+
+### Discussion
+
+#### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
+
+Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
