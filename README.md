@@ -28,9 +28,10 @@ The goals / steps of this project are the following:
 
 
 ## Contents
-* [Line_Detection_Pipeline](Line_Detection_Pipeline): This notebook contains my step by step in achieving the project.
+* [Line_Detection_Pipeline](Line_Detection_Pipeline): This notebook contains my step by step experimentations in achieving the project.
+* [Create_Video_Output](Create_Video_Output.ipynb): This notebook creates the video for the solution of this project.
+* [auxiliary.py](auxiliary.py): This python file contains the functions for creating the solution video.
 * [Project Video](https://vimeo.com/232379970)
-* [Debug Video](https://vimeo.com/232392603)
 
 
 ### 1. Camera Calibration
