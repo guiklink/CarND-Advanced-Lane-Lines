@@ -247,4 +247,8 @@ vehicle_center = (640, 719)
 def distance_center(fitx):
     return (fitx[vehicle_center[1]] - vehicle_center[0]) * pixe2meters['x']
 ```
-A debug video can be seem [here](https://vimeo.com/232392603).
+
+## Discussion
+
+The biggest challenge in detecting lines happens when shades or excessive brightness appear on the road. Moving foward a way to make the pipeline more robust to these changes could be find a good combination of the channels in LUV and LAB color spaces, since both of these schemes have a dedicated channel for ilumination.
+

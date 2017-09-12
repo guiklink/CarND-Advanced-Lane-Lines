@@ -6,17 +6,15 @@ import glob
 import matplotlib.pyplot as plt
 
 
+''' Calculate calibration variables. '''
+
 with open('distortion_var.p', 'rb') as handle:
     distortion_var = pickle.load(handle)
 
+ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(distortion_var['objpoints'], distortion_var['imgpoints'], (1280, 720),None,None)
 
 def undistort(img):
-    global distortion_var
-    
-    img_size = (img.shape[1], img.shape[0])
-    
-    # Use cv2.calibrateCamera() and cv2.undistort()
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(distortion_var['objpoints'], distortion_var['imgpoints'], img_size,None,None)
+    global ret, mtx, dist, rvecs, tvecs
     return cv2.undistort(img, mtx, dist, None, mtx)
 
 
